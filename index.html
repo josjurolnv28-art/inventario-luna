@@ -5,12 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventario Pro Cloud - Luna Café</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase App y Database SDKs (v9 Compat) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -27,7 +24,6 @@
 </head>
 <body class="text-stone-800 min-h-screen pb-16">
 
-    <!-- Header Principal -->
     <header class="coffee-gradient text-white shadow-md mb-6 sticky top-0 z-40">
         <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="text-center sm:text-left">
@@ -52,13 +48,11 @@
     </header>
 
     <main class="max-w-4xl mx-auto px-4">
-        <!-- Notificación flotante (Toast) -->
         <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-stone-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300 z-50 text-sm">
             <span id="toast-icon">✨</span>
             <span id="toast-msg">Actualizado</span>
         </div>
 
-        <!-- Buscador -->
         <div class="mb-6 flex gap-2">
             <div class="relative flex-1">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-stone-400">
@@ -71,7 +65,6 @@
             </button>
         </div>
 
-        <!-- Alertas Críticas -->
         <section class="bg-red-50/50 rounded-2xl p-5 shadow-sm border border-red-100/80 mb-6">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
@@ -83,12 +76,9 @@
             <div id="urgent-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
         </section>
 
-        <!-- Bloque de Secciones de Inventario -->
         <div class="space-y-6" id="categories-container"></div>
 
-        <!-- Sección de Papelera y Logs (Historial) -->
         <section class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Papelera de Reciclaje -->
             <div class="bg-stone-100 rounded-2xl p-5 border border-stone-200 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -100,7 +90,6 @@
                 <div id="trash-list" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
             </div>
 
-            <!-- Historial de Modificaciones -->
             <div class="bg-stone-100 rounded-2xl p-5 border border-stone-200 shadow-xs">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -114,7 +103,6 @@
         </section>
     </main>
 
-    <!-- Modal de Registro de Insumo -->
     <div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100">
             <div class="flex justify-between items-center mb-4">
@@ -156,7 +144,6 @@
         </div>
     </div>
 
-    <!-- Diálogo de Confirmación Personalizado -->
     <div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-stone-100">
             <h4 class="font-bold text-stone-900 text-base mb-2" id="confirm-title">¿Estás seguro?</h4>
@@ -169,7 +156,7 @@
     </div>
 
     <script>
-        // ✅ TUS CREDENCIALES CONFIGURADAS
+        // ✅ CREDENCIALES CONFIGURADAS
         const firebaseConfig = {
             apiKey: "AIzaSyBt7L7_n0V_ETpFyeDirOmrjLe-D_XOfj8",
             authDomain: "luna-cafe-inventario.firebaseapp.com",
@@ -202,7 +189,6 @@
 
         // Escuchar base de datos en tiempo real
         function setupCloudListeners() {
-            // Sincronizar Inventario Activo
             db.ref("inventario_luna_cafe_v4").on("value", (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -215,13 +201,11 @@
                 renderAll();
             }, (err) => updateStatus(false));
 
-            // Sincronizar Papelera de Reciclaje
             db.ref("papelera_v4").on("value", (snapshot) => {
                 trash = snapshot.val() || [];
                 renderTrash();
             });
 
-            // Sincronizar logs de operaciones
             db.ref("logs_v4").on("value", (snapshot) => {
                 logs = snapshot.val() || [];
                 renderLogs();
@@ -237,19 +221,17 @@
             }
         }
 
-        // Subir cambios generales a la base
         function pushUpdate() {
             db.ref("inventario_luna_cafe_v4").set(inventory);
         }
 
-        // Registrar acción en el Historial
         function addLog(message) {
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const logEntry = `[${timeStr}] ${message}`;
             
             logs.unshift(logEntry);
-            if (logs.length > 30) logs.pop(); // Limitar a 30 registros
+            if (logs.length > 30) logs.pop();
             db.ref("logs_v4").set(logs);
         }
 
@@ -261,7 +243,6 @@
             setTimeout(() => toast.classList.add("opacity-0", "pointer-events-none"), 1800);
         }
 
-        // Modificar cantidades y disparar el log
         function updateQuantity(id, val) {
             const idx = inventory.findIndex(item => item.id === id);
             if (idx !== -1) {
@@ -284,7 +265,7 @@
                 inventory[idx].urgent = !inventory[idx].urgent;
                 if (inventory[idx].urgent) inventory[idx].warning = false;
                 pushUpdate();
-                addLog(`${inventory[idx].name}: Urgente -> ${inventory[idx].urgent ? 'SÍ':'NO'}`);
+                addLog(`Urgencia ${inventory[idx].name}: -> ${inventory[idx].urgent ? 'SÍ':'NO'}`);
                 showToast(inventory[idx].urgent ? "Marcado como Urgente" : "Urgencia resuelta", "🚨");
             }
         }
@@ -295,53 +276,46 @@
                 if (inventory[idx].urgent) inventory[idx].urgent = false;
                 inventory[idx].warning = !inventory[idx].warning;
                 pushUpdate();
-                addLog(`${inventory[idx].name}: Alerta Media -> ${inventory[idx].warning ? 'SÍ':'NO'}`);
+                addLog(`Alerta Media ${inventory[idx].name}: -> ${inventory[idx].warning ? 'SÍ':'NO'}`);
                 showToast(inventory[idx].warning ? "Nivel medio establecido" : "Estado normalizado", "🟠");
             }
         }
 
-        // Eliminar Insumo y enviarlo a la Papelera
         function deleteItem(id) {
             const item = inventory.find(i => i.id === id);
             if (item) {
                 trash.unshift(item);
                 db.ref("papelera_v4").set(trash);
-
                 inventory = inventory.filter(i => i.id !== id);
                 pushUpdate();
-                
-                addLog(`Eliminado: ${item.name} (enviado a la papelera)`);
-                showToast(`Enviado a la papelera: ${item.name}`, "🗑️");
+                addLog(`Eliminado: ${item.name}`);
+                showToast(`Eliminado: ${item.name}`, "🗑️");
             }
         }
 
-        // Restaurar insumo desde la Papelera
         function restoreItem(id) {
             const item = trash.find(i => i.id === id);
             if (item) {
                 inventory.push(item);
                 trash = trash.filter(i => i.id !== id);
-                
                 db.ref("papelera_v4").set(trash);
                 pushUpdate();
-                
-                addLog(`Restaurado desde Papelera: ${item.name}`);
+                addLog(`Restaurado: ${item.name}`);
                 showToast(`Restaurado: ${item.name}`, "🔄");
             }
         }
 
-        // Eliminar definitivamente de la papelera
         function permanentlyDeleteItem(id) {
             trash = trash.filter(i => i.id !== id);
             db.ref("papelera_v4").set(trash);
-            showToast("Insumo eliminado definitivamente", "❌");
+            showToast("Eliminado definitivamente", "❌");
         }
 
         function clearTrash() {
-            showConfirmModal("¿Vaciar papelera?", "Esto eliminará de forma permanente todos los insumos eliminados de la lista.", () => {
+            showConfirmModal("¿Vaciar papelera?", "Esto eliminará de forma permanente todos los insumos.", () => {
                 trash = [];
                 db.ref("papelera_v4").set(trash);
-                addLog("Papelera de reciclaje vaciada");
+                addLog("Papelera vaciada");
                 showToast("Papelera vaciada", "🧹");
             });
         }
@@ -352,7 +326,6 @@
             showToast("Historial limpio", "🧹");
         }
 
-        // Renderizado general
         function renderAll() {
             const container = document.getElementById("categories-container");
             if (!container) return;
@@ -360,10 +333,9 @@
 
             Object.entries(categories).forEach(([key, cat]) => {
                 const section = document.createElement("section");
-                section.className = "bg-white rounded-2xl p-5 shadow-xs border border-stone-200/80 mb-6 category-section";
-                section.dataset.category = key;
-
+                section.className = "bg-white rounded-2xl p-5 shadow-xs border border-stone-200/80 mb-6 item-row";
                 const items = inventory.filter(item => item.category === key);
+                
                 section.innerHTML = `
                     <div class="flex items-center justify-between mb-4 pb-2 border-b border-stone-100">
                         <div class="flex items-center gap-2">
@@ -379,4 +351,20 @@
                 const itemsContainer = document.getElementById(`items-${key}`);
                 items.forEach(item => {
                     const row = document.createElement("div");
-                    row.className = "py-3 flex flex-col sm:f
+                    row.className = "py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all duration-150 item-row";
+                    row.dataset.name = item.name.toLowerCase();
+
+                    let statusColor = item.urgent ? "text-red-500" : "text-stone-300 hover:text-red-500";
+                    let warningColor = item.warning ? "text-amber-500" : "text-stone-300 hover:text-amber-500";
+
+                    row.innerHTML = `
+                        <div class="flex items-center gap-3 flex-1">
+                            <div class="flex gap-1.5 items-center">
+                                <button onclick="toggleUrgent(${item.id})" class="text-sm transition-transform active:scale-90 focus:outline-none ${statusColor}" title="Urgente">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </button>
+                                <button onclick="toggleWarning(${item.id})" class="text-sm transition-transform active:scale-90 focus:outline-none ${warningColor}" title="Medio">
+                                    <i class="fa-solid fa-circle"></i>
+                                </button>
+                            </div>
+                            <div cl
