@@ -1,0 +1,379 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Pro Cloud - Luna Café</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase App y Database SDKs (v9 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght=300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #fcfbfa;
+        }
+        .coffee-gradient {
+            background: linear-gradient(135deg, #3E2F26 0%, #1F1611 100%);
+        }
+    </style>
+</head>
+<body class="text-stone-800 min-h-screen pb-16">
+
+    <!-- Header Principal -->
+    <header class="coffee-gradient text-white shadow-md mb-6 sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="text-center sm:text-left">
+                <div class="flex items-center justify-center sm:justify-start gap-2">
+                    <span class="text-2xl">🌙</span>
+                    <h1 class="text-2xl font-bold tracking-tight">Luna Café</h1>
+                </div>
+                <p class="text-stone-300 text-xs flex items-center justify-center sm:justify-start gap-1.5">
+                    <span id="cloud-status-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block animate-pulse"></span>
+                    <span id="cloud-status-text">Conectando a la nube...</span>
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2 justify-center">
+                <button onclick="copyFullReport()" class="bg-[#8C6D58] hover:bg-[#735641] text-white px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-copy"></i> Copiar Reporte WhatsApp
+                </button>
+                <button onclick="openModal()" class="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> Añadir Insumo
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4">
+        <!-- Notificación flotante (Toast) -->
+        <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-stone-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300 z-50 text-sm">
+            <span id="toast-icon">✨</span>
+            <span id="toast-msg">Actualizado</span>
+        </div>
+
+        <!-- Buscador -->
+        <div class="mb-6 flex gap-2">
+            <div class="relative flex-1">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-stone-400">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" id="search-bar" oninput="filterItems()" placeholder="Buscar insumo (ej. vaso, jarabe, té)..." class="w-full bg-white border border-stone-200/80 pl-10 pr-4 py-2.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#8C6D58] text-sm shadow-sm transition-all">
+            </div>
+            <button onclick="resetSearch()" class="bg-stone-200 hover:bg-stone-300 text-stone-700 px-4 rounded-2xl text-xs font-semibold transition-all">
+                Limpiar
+            </button>
+        </div>
+
+        <!-- Alertas Críticas -->
+        <section class="bg-red-50/50 rounded-2xl p-5 shadow-sm border border-red-100/80 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🚨</span>
+                    <h2 class="text-lg font-bold text-red-900">Urgentes y Faltantes (Pedido Inmediato)</h2>
+                </div>
+                <span id="urgent-badge-count" class="bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">0</span>
+            </div>
+            <div id="urgent-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+        </section>
+
+        <!-- Bloque de Secciones de Inventario -->
+        <div class="space-y-6" id="categories-container"></div>
+
+        <!-- Sección de Papelera y Logs (Historial) -->
+        <section class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Papelera de Reciclaje -->
+            <div class="bg-stone-100 rounded-2xl p-5 border border-stone-200 shadow-xs">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-stone-600"><i class="fa-solid fa-trash-arrow-up"></i></span>
+                        <h4 class="font-bold text-sm text-stone-700">Papelera de Reciclaje</h4>
+                    </div>
+                    <button onclick="clearTrash()" class="text-xs text-red-600 hover:underline font-semibold">Vaciar</button>
+                </div>
+                <div id="trash-list" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Historial de Modificaciones -->
+            <div class="bg-stone-100 rounded-2xl p-5 border border-stone-200 shadow-xs">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-stone-600"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                        <h4 class="font-bold text-sm text-stone-700">Historial de Cambios</h4>
+                    </div>
+                    <button onclick="clearLogs()" class="text-xs text-stone-500 hover:underline">Limpiar</button>
+                </div>
+                <div id="logs-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1 text-[11px] text-stone-600 font-mono"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de Registro de Insumo -->
+    <div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-stone-900">Agregar Nuevo Insumo</h3>
+                <button onclick="closeModal()" class="text-stone-400 hover:text-stone-600 transition-all text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Nombre</label>
+                    <input type="text" id="new-name" placeholder="Ej. Jarabe de Menta" class="w-full bg-stone-50 border border-stone-200 px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8C6D58] text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Categoría</label>
+                    <select id="new-category" class="w-full bg-stone-50 border border-stone-200 px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8C6D58] text-sm">
+                        <option value="desechables">🥤 Vasos y Desechables</option>
+                        <option value="cafeteria">☕ Café, Polvos y Té</option>
+                        <option value="tisanas">🍓 Tisanas Frutales</option>
+                        <option value="jarabes">🍯 Jarabes, Concentrados y Licores</option>
+                        <option value="lacteos">🥛 Lácteos y Refrigerados</option>
+                        <option value="postres">🍰 Repostería y Postres</option>
+                        <option value="insumos_generales">⚙️ Insumos Generales</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Existencia / Cantidad</label>
+                    <input type="text" id="new-qty" placeholder="Ej. 120 pzas, 1/2 bote" class="w-full bg-stone-50 border border-stone-200 px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8C6D58] text-sm">
+                </div>
+                <div class="flex items-center gap-2 pt-1">
+                    <input type="checkbox" id="new-urgent" class="w-4 h-4 text-[#8C6D58] border-stone-300 rounded focus:ring-[#8C6D58]">
+                    <label for="new-urgent" class="text-xs sm:text-sm font-semibold text-red-600">Marcar como faltante urgente 🔺</label>
+                </div>
+                <div class="flex gap-2 pt-4">
+                    <button onclick="closeModal()" class="w-1/2 bg-stone-100 hover:bg-stone-200 text-stone-600 font-semibold py-2.5 rounded-xl transition-all text-sm">Cancelar</button>
+                    <button onclick="addNewItem()" class="w-1/2 bg-[#8C6D58] hover:bg-[#735641] text-white font-semibold py-2.5 rounded-xl transition-all text-sm shadow-md">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diálogo de Confirmación Personalizado -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-stone-100">
+            <h4 class="font-bold text-stone-900 text-base mb-2" id="confirm-title">¿Estás seguro?</h4>
+            <p class="text-stone-600 text-xs mb-4" id="confirm-message">Esta acción no se puede deshacer.</p>
+            <div class="flex gap-2 justify-end">
+                <button onclick="closeConfirmModal(false)" class="bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold px-4 py-2 rounded-xl transition-all">Cancelar</button>
+                <button onclick="closeConfirmModal(true)" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all" id="confirm-btn-action">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ✅ URL ORIGINAL V3 QUE ESTÁ ACTIVA EN TU CAPTURA DE PANTALLA
+        const firebaseConfig = {
+            apiKey: "AIzaSyBt7L7_n0V_ETpFyeDirOmrjLe-D_XOfj8",
+            authDomain: "luna-cafe-inventario.firebaseapp.com",
+            databaseURL: "https://luna-cafe-inventario-default-rtdb.firebaseio.com",
+            projectId: "luna-cafe-inventario",
+            storageBucket: "luna-cafe-inventario.appspot.com",
+            messagingSenderId: "538413717095",
+            appId: "1:538413717095:web:8e3d64fe305333fdf08149"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Variables de Estado
+        let inventory = [];
+        let trash = [];
+        let logs = [];
+        let pendingConfirmAction = null;
+
+        const categories = {
+            "desechables": { title: "🥤 Vasos y Desechables de Barra", icon: "fa-mug-saucer" },
+            "cafeteria": { title: "☕ Café, Polvos y Té Caliente", icon: "fa-mug-hot" },
+            "tisanas": { title: "🍓 Tisanas Frutales", icon: "fa-leaf" },
+            "jarabes": { title: "🍯 Jarabes, Concentrados y Licores", icon: "fa-bottle-droplet" },
+            "lacteos": { title: "🥛 Lácteos y Refrigeración", icon: "fa-cow" },
+            "postres": { title: "🍰 Repostería y Vitrina de Postres", icon: "fa-cake-slice" },
+            "insumos_generales": { title: "⚙️ Consumibles Generales e Higiene", icon: "fa-gears" }
+        };
+
+        // Conectar a la versión v3 que se muestra en tus datos reales de Firebase
+        function setupCloudListeners() {
+            db.ref("inventario_luna_cafe_v3").on("value", (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    inventory = data;
+                } else {
+                    inventory = getBaseInventory();
+                    db.ref("inventario_luna_cafe_v3").set(inventory);
+                }
+                updateStatus(true);
+                renderAll();
+            }, (err) => {
+                console.error(err);
+                updateStatus(false);
+            });
+
+            db.ref("papelera_v3").on("value", (snapshot) => {
+                trash = snapshot.val() || [];
+                renderTrash();
+            });
+
+            db.ref("logs_v3").on("value", (snapshot) => {
+                logs = snapshot.val() || [];
+                renderLogs();
+            });
+        }
+
+        function updateStatus(isConnected) {
+            const dot = document.getElementById("cloud-status-dot");
+            const text = document.getElementById("cloud-status-text");
+            if (dot && text) {
+                dot.className = `w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-500':'bg-red-500'} inline-block ${isConnected ? '':'animate-pulse'}`;
+                text.innerText = isConnected ? "Conectado en tiempo real a Firebase" : "Reconectando...";
+            }
+        }
+
+        function pushUpdate() {
+            db.ref("inventario_luna_cafe_v3").set(inventory);
+        }
+
+        function addLog(message) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const logEntry = `[${timeStr}] ${message}`;
+            
+            logs.unshift(logEntry);
+            if (logs.length > 30) logs.pop();
+            db.ref("logs_v3").set(logs);
+        }
+
+        function showToast(message, icon = "✨") {
+            const toast = document.getElementById("toast");
+            document.getElementById("toast-msg").innerText = message;
+            document.getElementById("toast-icon").innerText = icon;
+            toast.classList.remove("opacity-0", "pointer-events-none");
+            setTimeout(() => toast.classList.add("opacity-0", "pointer-events-none"), 1800);
+        }
+
+        function updateQuantity(id, val) {
+            const idx = inventory.findIndex(item => item.id === id);
+            if (idx !== -1) {
+                const oldVal = inventory[idx].quantity;
+                if (oldVal !== val) {
+                    inventory[idx].quantity = val;
+                    const norm = val.toLowerCase();
+                    if (norm.includes("no hay") || norm.includes("agotado") || norm.includes("se acabo") || norm.includes("vacio")) {
+                        inventory[idx].urgent = true;
+                    }
+                    pushUpdate();
+                    addLog(`Modificado: ${inventory[idx].name} -> "${val}"`);
+                }
+            }
+        }
+
+        function toggleUrgent(id) {
+            const idx = inventory.findIndex(item => item.id === id);
+            if (idx !== -1) {
+                inventory[idx].urgent = !inventory[idx].urgent;
+                if (inventory[idx].urgent) inventory[idx].warning = false;
+                pushUpdate();
+                addLog(`Urgencia ${inventory[idx].name}: -> ${inventory[idx].urgent ? 'SÍ':'NO'}`);
+                showToast(inventory[idx].urgent ? "Marcado como Urgente" : "Urgencia resuelta", "🚨");
+            }
+        }
+
+        function toggleWarning(id) {
+            const idx = inventory.findIndex(item => item.id === id);
+            if (idx !== -1) {
+                if (inventory[idx].urgent) inventory[idx].urgent = false;
+                inventory[idx].warning = !inventory[idx].warning;
+                pushUpdate();
+                addLog(`Alerta Media ${inventory[idx].name}: -> ${inventory[idx].warning ? 'SÍ':'NO'}`);
+                showToast(inventory[idx].warning ? "Nivel medio establecido" : "Estado normalizado", "🟠");
+            }
+        }
+
+        function deleteItem(id) {
+            const item = inventory.find(i => i.id === id);
+            if (item) {
+                trash.unshift(item);
+                db.ref("papelera_v3").set(trash);
+                inventory = inventory.filter(i => i.id !== id);
+                pushUpdate();
+                addLog(`Eliminado: ${item.name}`);
+                showToast(`Eliminado: ${item.name}`, "🗑️");
+            }
+        }
+
+        function restoreItem(id) {
+            const item = trash.find(i => i.id === id);
+            if (item) {
+                inventory.push(item);
+                trash = trash.filter(i => i.id !== id);
+                db.ref("papelera_v3").set(trash);
+                pushUpdate();
+                addLog(`Restaurado: ${item.name}`);
+                showToast(`Restaurado: ${item.name}`, "🔄");
+            }
+        }
+
+        function permanentlyDeleteItem(id) {
+            trash = trash.filter(i => i.id !== id);
+            db.ref("papelera_v3").set(trash);
+            showToast("Eliminado definitivamente", "❌");
+        }
+
+        function clearTrash() {
+            showConfirmModal("¿Vaciar papelera?", "Esto eliminará de forma permanente todos los insumos.", () => {
+                trash = [];
+                db.ref("papelera_v3").set(trash);
+                addLog("Papelera vaciada");
+                showToast("Papelera vaciada", "🧹");
+            });
+        }
+
+        function clearLogs() {
+            logs = [];
+            db.ref("logs_v3").set(logs);
+            showToast("Historial limpio", "🧹");
+        }
+
+        function renderAll() {
+            const container = document.getElementById("categories-container");
+            if (!container) return;
+            container.innerHTML = "";
+
+            Object.entries(categories).forEach(([key, cat]) => {
+                const section = document.createElement("section");
+                section.className = "bg-white rounded-2xl p-5 shadow-xs border border-stone-200/80 mb-6 category-section";
+                section.dataset.category = key;
+
+                const items = inventory.filter(item => item.category === key);
+                section.innerHTML = `
+                    <div class="flex items-center justify-between mb-4 pb-2 border-b border-stone-100">
+                        <div class="flex items-center gap-2">
+                            <span class="text-stone-500 text-lg"><i class="fa-solid ${cat.icon}"></i></span>
+                            <h3 class="font-bold text-sm sm:text-base text-stone-800">${cat.title}</h3>
+                        </div>
+                        <span class="text-xs text-stone-400 font-bold bg-stone-100 px-2.5 py-1 rounded-full">${items.length} ítems</span>
+                    </div>
+                    <div class="divide-y divide-stone-50" id="items-${key}"></div>
+                `;
+                container.appendChild(section);
+
+                const itemsContainer = document.getElementById(`items-${key}`);
+                items.forEach(item => {
+                    const row = document.createElement("div");
+                    row.className = "py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all duration-150 item-row";
+                    row.dataset.name = item.name.toLowerCase();
+
+                    let statusColor = item.urgent ? "text-red-500" : "text-stone-300 hover:text-red-500";
+                    let warningColor = item.warning ? "text-amber-500" : "text-stone-300 hover:text-amber-500";
+
+                    row.innerHTML = `
+                        <div class="flex items-center gap-3 flex-1">
+                            <div
