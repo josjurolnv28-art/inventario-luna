@@ -188,7 +188,7 @@
 
         // Escuchar base de datos en tiempo real
         function setupCloudListeners() {
-            db.ref("inventario_luna_cafe_v4").on("value", (snapshot) => {
+            db.ref("inventario_luna_cafe_v3").on("value", (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     inventory = data;
